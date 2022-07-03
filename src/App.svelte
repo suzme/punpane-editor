@@ -367,7 +367,6 @@
 
   // ページ遷移の警告
   const before_unload = e => {
-    console.log(e)
     e.preventDefault()
     e.returnValue = 'ページを移動してよろしいですか？未保存のデータは失われます。'
   }
