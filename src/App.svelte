@@ -317,7 +317,11 @@
       requestAnimationFrame(play_animation_loop)
       is_playing = true
     } else {
-      message = '再生準備が未完了です。'
+      if (audio_buffer_node) {
+        message = '再生準備が未完了です。'
+      } else {
+        message = '音楽ファイルが入力されていません。'
+      }
       message_color = message_colors.error
     }
   }
