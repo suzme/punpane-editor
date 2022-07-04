@@ -284,7 +284,7 @@
     message = ''
     const value = e.target.value
     if (!isNaN(value)) {
-      begin_frames[label_index] = value
+      begin_frames[label_index] = parseFloat(value)
     }
   }
 
@@ -293,7 +293,7 @@
     message = ''
     const value = e.target.value
     if (!isNaN(value)) {
-      bpms[label_index] = value
+      bpms[label_index] = parseFloat(value)
     }
   }
 
