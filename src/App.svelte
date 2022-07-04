@@ -651,7 +651,7 @@
       {/if}
     </div>
     <footer>
-      Pun◇Pane Editor Ver.{version}
+      <a href="https://github.com/suzme/punpane-editor">Pun◇Pane Editor Ver.{version}</a>
     </footer>
   </div>
 </main>
@@ -782,8 +782,17 @@
 
   footer {
     margin-top: 1rem;
-    color: #999999;
     font-size: 80%;
     text-align: right;
+  }
+
+  footer a:link, footer a:visited {
+    color: #999999;
+    text-decoration: none;
+  }
+
+  footer a:hover {
+    color: #6666cc;
+    text-decoration: underline;
   }
 </style>
