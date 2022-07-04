@@ -4,7 +4,7 @@
   /**
    * 定数
    */
-  const version = '20220704-0'
+  const version = '20220704-1'
   const panel_num = 18        // パネル数
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const panel_width = 96      // パネルの幅[px]
@@ -52,8 +52,25 @@
   let message = ''
   let message_color = message_colors.success
 
+  let dragover_flag = false  // ファイルドラッグ中のときtrue
+
   // パネルのタイミングデータ(resolution単位)
   let panels_all = new Array(panel_num).fill([])
+
+  // 曲再生関連
+  let play_begin_time   // 開始したときのcurrentTime
+  let cursor_play = -1  // 再生カーソル位置
+  let volume = 1        // 音量
+  let playback_rate = 1 // 再生速度
+
+  // WebAudioAPI関連
+  const audio_context = new AudioContext()
+  const audio_gain_node = audio_context.createGain()
+  audio_gain_node.connect(audio_context.destination)
+  let audio_buffer_node
+  let audio_source_node
+  let can_play = false    // 再生可能になったらtrue
+  let is_playing = false  // 再生中のときtrue
 
   /**
    * リアクティブ
@@ -117,6 +134,9 @@
   // カーソル移動
   const move_cursor = tick => {
     message = ''
+    if (is_playing && Math.floor(tick / resolution) !== Math.floor(cursor / resolution)) {
+      setTimeout(play, 0) // カーソル移動完了してから再生
+    }
     cursor = tick
   }
   const cursor_previous = () => move_cursor(cursor - (3 * 64) / note_length)
@@ -200,7 +220,11 @@
   // セーブデータ読み込み
   const load = text => {
     let save_data
-
+  
+    if (confirm('セーブデータを読み込むと現在編集中のデータは失われます。よろしいですか？') === false) {
+      return
+    }
+  
     try {
       save_data = JSON.parse(text)
     } catch (e) {
@@ -260,6 +284,72 @@
   const save_dos_clipboard = () => copy_text(get_dos(), 'クリップボードにdosをコピーしました。')
 
   /**
+   * 曲再生関連処理
+   */
+
+   // 再生中のアニメーション
+  const play_animation_loop = () => {
+    if (!is_playing) return
+    cursor_play = ((audio_context.currentTime - play_begin_time) * bpm / 60 / 4 - 0.5) * resolution
+    if (cursor_play > resolution) {
+      stop()
+      play()
+    }
+    requestAnimationFrame(play_animation_loop)
+  }
+
+  // 再生開始
+  const play = () => {
+    if (is_playing) {
+      stop()
+    }
+    if (can_play) {
+      const fade_begin_frame = (measure - label_measure - 0.5) * 4 * 60 * 60 / bpm + begin_frame
+      const fade_begin_time = (fade_begin_frame - 200) / 60
+      const offset_time = fade_begin_time < 0 ? -fade_begin_time : 0
+      audio_gain_node.gain.value = volume
+      audio_source_node = audio_context.createBufferSource()
+      audio_source_node.buffer = audio_buffer_node
+      audio_source_node.playbackRate.value = playback_rate
+      audio_source_node.connect(audio_gain_node)
+      play_begin_time = audio_context.currentTime + offset_time
+      audio_source_node.start(play_begin_time + offset_time, Math.max(fade_begin_time, 0))
+      requestAnimationFrame(play_animation_loop)
+      is_playing = true
+    } else {
+      message = '再生準備が未完了です。'
+      message_color = message_colors.error
+    }
+  }
+
+  // 再生停止
+  const stop = () => {
+    audio_source_node.stop()
+    cursor_play = -1
+    is_playing = false
+  }
+
+  // 再生のオンオフ
+  const toggle_play = () => {
+    if (is_playing) {
+      stop()
+    } else {
+      play()
+    }
+  }
+
+  const volume_change = () => {
+    audio_gain_node.gain.value = volume
+  }
+
+  const playback_rate_change = () => {
+    audio_source_node.playbackRate.value = playback_rate
+    if (is_playing) {
+      play()
+    }
+  }
+
+  /**
    * イベント処理
   */
   // "この小節で設定変更"のチェック状態変化
@@ -294,6 +384,57 @@
     const value = e.target.value
     if (!isNaN(value)) {
       bpms[label_index] = parseFloat(value)
+    }
+  }
+
+  // ドラッグ時
+  const dragover = e => {
+    e.preventDefault()
+    dragover_flag = true
+    message = ''
+  }
+
+  const dragleave = e => {
+    e.preventDefault()
+    dragover_flag = false
+    message = ''
+  }
+
+  // ドロップ時
+  const drop = e => {
+    e.stopPropagation()
+    e.preventDefault()
+    dragover_flag = false
+    message = ''
+
+    if (!e.dataTransfer || !e.dataTransfer.files)  return
+    const files = e.dataTransfer.files
+    if (files.length === 0) return
+
+    const file = files[0]
+    if (file.type.match(/^audio/)) {
+      // 音楽ファイルの読み込み
+      can_play = false
+      const reader = new FileReader()
+      reader.onload = () => {
+        audio_context.decodeAudioData(reader.result, decode_result => {
+          audio_buffer_node = decode_result
+          message = '音楽ファイルの読み込みが完了しました。'
+          message_color = message_colors.success
+          can_play = true
+        })
+      }
+
+      reader.readAsArrayBuffer(file)
+    } else if (file.type === 'text/plain') {
+      const reader = new FileReader()
+      reader.onload = () => {
+        load(reader.result)
+      }
+      reader.readAsText(file)
+    } else {
+      message = '非対応のファイルタイプです(' + file.type + ')'
+      message_color = message_colors.error
     }
   }
 
@@ -339,6 +480,7 @@
     'Slash': toggle_panel(17),
     'Delete': remove_line,
     'Backspace': backspace,
+    'Enter': toggle_play
   }
 
   // キー設定(Ctrl付き)
@@ -368,15 +510,23 @@
   // ページ遷移の警告
   const before_unload = e => {
     e.preventDefault()
-    e.returnValue = 'ページを移動してよろしいですか？未保存のデータは失われます。'
+    e.returnValue = 'ページを移動してよろしいですか？現在編集中のデータは失われます。'
   }
 </script>
 
-<svelte:window on:beforeunload={before_unload} on:keydown={keydown} on:wheel={wheel}/>
+<svelte:window
+  on:beforeunload={before_unload}
+  on:keydown={keydown}
+  on:wheel={wheel}
+  on:drop={drop}
+  on:dragover={dragover}
+  on:dragleave={dragleave}/>
 
 <main>
   <div class="container"
-    style:width={`${note_width * 18 + 20 + panel_width * 5}px`}>
+    style:width={`${note_width * 18 + 20 + panel_width * 5}px`}
+    class:dragover={dragover_flag}
+    >
     <div>
       {measure + 1}小節目, {(cursor - measure * 192) / (resolution / note_length) + 1}/{note_length} ({Math.round(cursor_frame)}f)
     </div>
@@ -402,6 +552,7 @@
       <input type="button" value="→" on:click={page_next} title="右矢印キー: 次の小節に移動">
       <input type="button" value="BS" on:click={backspace} title="Backspace: カーソルを前に移動してパネルを削除">
       <input type="button" value="DEL" on:click={remove_line} title="Delete: カーソルのある行のパネルを削除">
+      <input type="button" value="Enter" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
     </div>
     <div class="punpane_editor"
       style:height="{resolution * 2 + 10}px">
@@ -442,6 +593,13 @@
             </div>
           {/each}
         {/each}
+        <!-- 再生位置カーソル表示 -->
+        {#if cursor_play >= 0}
+          <div class="cursor_play"
+            style:top="{cursor_play * 2}px"
+            style:width="{note_width * 18}px">
+          </div>
+        {/if}
         <!-- カーソル表示 -->
         <div class="cursor"
           style:top="{(cursor - measure * resolution) * 2}px"
@@ -461,9 +619,22 @@
         {/each}
       </div>
     </div>
+    <div class="music_control">
+      音量({volume.toFixed(2)})
+      <input type="range" min="0" max="1" step="0.01"
+        bind:value={volume}
+        on:input={volume_change}>
+      速度({playback_rate.toFixed(2)})
+      <input type="range" min="0.1" max="1.5" step="0.1"
+        bind:value={playback_rate}
+        on:input={playback_rate_change}>
+    </div>
+    <div class="drop_area" class:dragover={dragover_flag}>
+      画面にファイルをドロップしてセーブデータ/音楽ファイルを読み込み
+    </div>
     <div class="save_buttons">
-      <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="クリップボードから読み込み" on:click={load_clipboard}>
+      <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
     </div>
     <div class="message_container">
@@ -485,6 +656,7 @@
   .container {
     margin: auto;
     font-size: 12pt;
+    box-sizing: border-box;
   }
 
   .punpane_editor * {
@@ -567,8 +739,31 @@
     border: 1px solid #33cc99;
   }
 
+  .cursor_play {
+    position: absolute;
+    border: 1px solid #cc3333;
+  }
+
+  .music_control {
+    margin-top: 0.5rem;
+  }
+
+  .drop_area {
+    margin-top: 0.5rem;
+    border: 1px solid #cccccc;
+    padding: 0.5rem;
+  }
+
+  .drop_area.dragover {
+    background: #ccffff;
+  }
+
   .save_buttons {
     margin-top: 0.5rem;
+  }
+
+  .save_buttons input[type="button"] {
+    padding: 0.5rem;
   }
 
   .message_container {
