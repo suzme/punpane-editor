@@ -651,7 +651,8 @@
       {/if}
     </div>
     <footer>
-      <a href="https://github.com/suzme/punpane-editor">Pun◇Pane Editor Ver.{version}</a>
+      <a href="./thirdparty_license.txt" target="_blank" rel="noopener noreferrer">使用しているソフトウェアのライセンス表示</a> |
+      <a href="https://github.com/suzme/punpane-editor" target="_blank" rel="noopener noreferrer">Pun◇Pane Editor Ver.{version}</a>
     </footer>
   </div>
 </main>
