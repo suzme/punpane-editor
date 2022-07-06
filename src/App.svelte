@@ -4,7 +4,7 @@
   /**
    * 定数
    */
-  const version = '20220704-1'
+  const version = '20220706-0'
   const panel_num = 18        // パネル数
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const panel_width = 96      // パネルの幅[px]
@@ -290,7 +290,7 @@
    // 再生中のアニメーション
   const play_animation_loop = () => {
     if (!is_playing) return
-    cursor_play = ((audio_context.currentTime - play_begin_time) * bpm / 60 / 4 - 0.5) * resolution
+    cursor_play = ((audio_context.currentTime - play_begin_time) * bpm * playback_rate / 60 / 4 - 0.5) * resolution
     if (cursor_play > resolution) {
       stop()
       play()
