@@ -4,7 +4,7 @@
   /**
    * 定数
    */
-  const version = '20220709-1'
+  const version = '20220710-0'
   const panel_num = 18        // パネル数
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const panel_width = 96      // パネルの幅[px]
@@ -229,7 +229,7 @@
       save_data = JSON.parse(text)
     } catch (e) {
       console.log(e)
-      message = "セーブデータの読み込みに失敗しました。"
+      message = 'セーブデータの読み込みに失敗しました。'
       message_color = message_colors.error
       return
     }
@@ -239,6 +239,7 @@
     begin_frames = save_data.begin_frames ?? []
     bpms = save_data.bpms ?? []
     chart_num = save_data.chart_num
+    message = 'セーブデータを読み込みました。'
   }
 
   // クリップボードから読み込み
