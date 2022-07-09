@@ -192,6 +192,21 @@
     remove_line()
   }
 
+  // 新規作成
+  const clear_data = () => {
+    if (confirm('現在編集中のデータは失われます。よろしいですか？') === false) {
+      return
+    }
+
+    panels_all = new Array(panel_num).fill([])
+    label_measures = []
+    begin_frames = []
+    bpms = []
+    chart_num = 1
+    cursor = 0
+    message = ''
+  }
+
   const copy_text = (text, success='クリップボードにコピーしました。') => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text)
@@ -234,6 +249,7 @@
       return
     }
 
+    cursor = 0
     panels_all = save_data.panels ?? new Array(panel_num).fill([])
     label_measures = save_data.label_measures ?? []
     begin_frames = save_data.begin_frames ?? []
@@ -666,6 +682,7 @@
       画面にファイルをドロップしてセーブデータ/音楽ファイルを読み込み
     </div>
     <div class="save_buttons">
+      <input type="button" value="新規作成" on:click={clear_data}>
       <input type="button" value="クリップボードから読み込み" on:click={load_clipboard}>
       <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
