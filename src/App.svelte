@@ -4,7 +4,7 @@
   /**
    * 定数
    */
-  const version = '20220706-0'
+  const version = '20220709-0'
   const panel_num = 18        // パネル数
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const panel_width = 96      // パネルの幅[px]
@@ -255,7 +255,7 @@
 
   // dosデータの作成
   const get_dos = () => 
-    panels_all.map((panels, i) => `|${dos_chara[i]}_data=`
+    panels_all.map((panels, i) => `|${dos_chara[i]}${chart_num !== 1 ? chart_num : ''}_data=`
       + [...panels.map(panel => {
         // パネルの置かれている小節番号(仮。存在しない/最初のラベルより前の場合-Infinity)
         const measure = Math.floor(panel / resolution)
@@ -640,6 +640,7 @@
       <input type="button" value="クリップボードから読み込み" on:click={load_clipboard}>
       <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
+      譜面番号<input type="number" min="1" bind:value={chart_num}>
     </div>
     <div class="message_container">
       {#if message !== ''}
@@ -768,7 +769,14 @@
   }
 
   .save_buttons input[type="button"] {
-    padding: 0.5rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 100%;
+  }
+
+  .save_buttons input[type="number"] {
+    width: 4rem;
+    padding: 0.2rem;
+    font-size: 100%;
   }
 
   .message_container {
