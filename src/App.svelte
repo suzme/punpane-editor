@@ -4,7 +4,7 @@
   /**
    * 定数
    */
-  const version = '20220709-0'
+  const version = '20220709-1'
   const panel_num = 18        // パネル数
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const panel_width = 96      // パネルの幅[px]
@@ -377,8 +377,22 @@
   const frame_change = e => {
     message = ''
     const value = e.target.value
-    if (!isNaN(value)) {
-      begin_frames[label_index] = parseFloat(value)
+    let frame
+
+    try {
+      frame = parseFloat(value)
+    } catch(e) {
+      // parseFloatに失敗したら元に戻す
+      console.log(e)
+      e.target.value = begin_frames[label_index]
+      return
+    }
+
+    if (Number.isNaN(frame)) {
+      // NaNのときは元に戻す
+      e.target.value = begin_frames[label_index]
+    } else {
+      begin_frames[label_index] = frame
     }
   }
 
@@ -386,8 +400,22 @@
   const bpm_change = e => {
     message = ''
     const value = e.target.value
-    if (!isNaN(value)) {
-      bpms[label_index] = parseFloat(value)
+    let bpm
+
+    try {
+      bpm = parseFloat(value)
+    } catch(e) {
+      // parseFloatに失敗したら元に戻す
+      console.log(e)
+      e.target.value = bpms[label_index]
+      return
+    }
+
+    if (Number.isNaN(bpm) || bpm <= 0) {
+      // NaNまたはBPMが0以下のときは元に戻す
+      e.target.value = bpms[label_index]
+    } else {
+      bpms[label_index] = bpm
     }
   }
 
@@ -540,7 +568,7 @@
       <label for="begin_frame">開始フレーム: </label>
       <input type="number" value="{begin_frame}" on:change={frame_change} id="begin_frame">
       <label for="bpm">BPM: </label>
-      <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" id="bpm">
+      <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" min="0.01" id="bpm">
     </div>
     <div class="main_buttons">
       <input type="button" value="4"  on:click={change_note_len(4)}  class:selected={note_length === 4 } title="1キー: カーソル移動間隔を4分に変更">
