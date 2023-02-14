@@ -1,37 +1,17 @@
 <script>
   import { fade } from 'svelte/transition'
+  import { keys } from './keys.js'
 
   /**
    * 定数
    */
-  const version = '20220710-0'
-  const panel_num = 18        // パネル数
+  const version = '20230214-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
-  const panel_width = 96      // パネルの幅[px]
-  const panel_height = 96     // パネルの高さ[px]
-  const note_width = 20       // ノートの幅[px]
-  const note_height = 6       // ノートの高さ[px]
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
   const default_fix_measure = 0    // ラベルの小節番号のデフォルト値
   const default_begin_frame = 200  // 開始フレームのデフォルト値
   const default_bpm = 160          // BPMのデフォルト値
-
-  // パネルの縦位置[*panel_height]
-  const panel_top = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3]
-
-  // パネルの横位置[*panel_width]
-  const panel_left = [0, 1, 2, 3, 4, 0.5, 1.5, 2.5, 3.5, 0.5, 1.5, 2.5, 3.5, 0, 1, 2, 3, 4]
-
-  // パネルの色定義(colorsのindexで指定)
-  const colors = ['#cccccc', '#9999ff', '#99ffff', '#ffff99', '#ff9966', '#ffffff']
-  const panel_color_def = [1, 2, 5, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 5, 3, 4]
-
-  // パネルの表示名(真ん中に出るやつ)
-  const names = '7890-UIOPJKL;NM<>/'.split('')
-
-  // dosの変数名リスト
-  const dos_chara = 'aa,ab,ac,ad,ae,ba,bb,bc,bd,ca,cb,cc,cd,da,db,dc,dd,de'.split(',')
 
   // メッセージの背景色
   const message_colors = {
@@ -42,6 +22,17 @@
   /**
    * 変数
    */
+  let key_settings = {}                    // キー(18p,9t)ごとの設定
+  const url_obj = new URL(document.location)
+  const url_param_key = url_obj.searchParams.get('key')
+  if (url_param_key && keys[url_param_key]) {
+    key_settings = {...keys[url_param_key]}
+    key_settings.key = url_param_key
+  } else {
+    key_settings = {...keys['18p']}
+    key_settings.key = '18p'
+  }
+
   let chart_num = 1                        // 譜面番号
   let cursor = 0                           // カーソル位置(resolution単位)
   let note_length = 16                     // n分音符(3連符は6,12,24で指定)
@@ -55,7 +46,7 @@
   let dragover_flag = false  // ファイルドラッグ中のときtrue
 
   // パネルのタイミングデータ(resolution単位)
-  let panels_all = new Array(panel_num).fill([])
+  let panels_all = new Array(key_settings.panel_num).fill([])
 
   // 曲再生関連
   let play_begin_time   // 開始したときのcurrentTime
@@ -98,7 +89,7 @@
 
   // パネルの表示色(カーソル位置に配置されているかどうかで色を変える)
   $: panel_color = panels_all.map(
-    (panels, i) => panels.includes(cursor) ? colors[panel_color_def[i]] : colors[0]
+    (panels, i) => panels.includes(cursor) ? key_settings.colors[key_settings.panel_color_def[i]] : key_settings.colors[0]
   )
 
   // 1小節分のパネル表示用
@@ -121,7 +112,7 @@
       panel => cursor - panel
     ).filter(
       // 表示範囲内に絞り込み
-      panel => panel > 0 && panel <= panel_width
+      panel => panel > 0 && panel <= key_settings.panel_width
     )
   )
 
@@ -198,7 +189,7 @@
       return
     }
 
-    panels_all = new Array(panel_num).fill([])
+    panels_all = new Array(key_settings.panel_num).fill([])
     label_measures = []
     begin_frames = []
     bpms = []
@@ -219,6 +210,7 @@
 
   // セーブデータ作成
   const get_save_date = () => JSON.stringify({
+      key: key_settings.key,
       panels: panels_all,
       label_measures: label_measures,
       begin_frames: begin_frames,
@@ -226,7 +218,7 @@
       resolution: resolution,
       chart_num: chart_num,
       editor_version: version,
-      save_data_version: 0
+      save_data_version: 1
     })
 
   // クリップボードにセーブデータを保存
@@ -249,8 +241,16 @@
       return
     }
 
+    if (save_data.key) {
+      key_settings = {...keys[save_data.key]}
+      key_settings.key = save_data.key
+    } else {
+      key_settings = {...keys['18p']}
+      key_settings.key = '18p'
+    }
+
     cursor = 0
-    panels_all = save_data.panels ?? new Array(panel_num).fill([])
+    panels_all = save_data.panels ?? new Array(key_settings.panel_num).fill([])
     label_measures = save_data.label_measures ?? []
     begin_frames = save_data.begin_frames ?? []
     bpms = save_data.bpms ?? []
@@ -272,7 +272,7 @@
 
   // dosデータの作成
   const get_dos = () => 
-    panels_all.map((panels, i) => `|${dos_chara[i]}${chart_num !== 1 ? chart_num : ''}_data=`
+    panels_all.map((panels, i) => `|${key_settings.dos_chara[i]}${chart_num !== 1 ? chart_num : ''}_data=`
       + [...panels.map(panel => {
         // パネルの置かれている小節番号(仮。存在しない/最初のラベルより前の場合-Infinity)
         const measure = Math.floor(panel / resolution)
@@ -491,7 +491,7 @@
    * グローバルなイベント(キー/マウス操作)
   */
   // キー設定(修飾キーなし)
-  const keyConfig = {
+  const key_config = {
     'ArrowUp': cursor_previous,
     'ArrowDown': cursor_next,
     'ArrowLeft': page_previous,
@@ -509,37 +509,21 @@
     'Digit5': change_note_len(24),
     'Digit6': change_note_len(48),
     'KeyR': change_note_len(32),
-    'Digit7': toggle_panel(0),
-    'Digit8': toggle_panel(1),
-    'Digit9': toggle_panel(2),
-    'Digit0': toggle_panel(3),
-    'Minus': toggle_panel(4),
-    'KeyU': toggle_panel(5),
-    'KeyI': toggle_panel(6),
-    'KeyO': toggle_panel(7),
-    'KeyP': toggle_panel(8),
-    'KeyJ': toggle_panel(9),
-    'KeyK': toggle_panel(10),
-    'KeyL': toggle_panel(11),
-    'Semicolon': toggle_panel(12),
-    'KeyN': toggle_panel(13),
-    'KeyM': toggle_panel(14),
-    'Comma': toggle_panel(15),
-    'Period': toggle_panel(16),
-    'Slash': toggle_panel(17),
     'Delete': remove_line,
     'Backspace': backspace,
     'Enter': toggle_play
   }
 
+  key_settings.key_config.forEach((code, i) => key_config[code] = toggle_panel(i))
+
   // キー設定(Ctrl付き)
-  const keyConfigCtrl = {
+  const key_config_ctrl = {
   }
 
   // キーを押したとき
   const keydown = e => {
     if (e.target.type !== 'number') {
-      const keyConfig_ = e.ctrlKey ? keyConfigCtrl : keyConfig
+      const keyConfig_ = e.ctrlKey ? key_config_ctrl : key_config
       if (keyConfig_[e.code]) {
         keyConfig_[e.code]()
         e.preventDefault()
@@ -573,7 +557,7 @@
 
 <main>
   <div class="container"
-    style:width={`${note_width * 18 + 20 + panel_width * 5}px`}
+    style:width={`${key_settings.note_width * key_settings.panel_num + 20 + key_settings.panel_width * 5}px`}
     class:dragover={dragover_flag}
     >
     <div>
@@ -606,25 +590,25 @@
     <div class="punpane_editor"
       style:height="{resolution * 2 + 10}px">
       <!-- 右側: パネル表示部 -->
-      <div class="panels" style={`left: ${note_width * 18 + 20}px; width: ${panel_width * 5}px;`}>
+      <div class="panels" style={`left: ${key_settings.note_width * key_settings.panel_num + 20}px; width: ${key_settings.panel_width * 5}px;`}>
         {#each panels_all as panels, i}
           <!-- パネル本体 -->
           <div class="panel"
-            style:width="{panel_width + 1}px"
-            style:height="{panel_height + 1}px"
-            style:top="{panel_top[i] * panel_height}px"
-            style:left="{panel_left[i] * panel_width}px"
+            style:width="{key_settings.panel_width + 1}px"
+            style:height="{key_settings.panel_height + 1}px"
+            style:top="{key_settings.panel_top[i] * key_settings.panel_height}px"
+            style:left="{key_settings.panel_left[i] * key_settings.panel_width}px"
             style:background="{panel_color[i]}"
             on:click={toggle_panel(i)}>
             <!-- カーソルより前のパネル表示 -->
             {#each panels_previous[i] as prev}
               <div class="panel_back"
-                style:width="{panel_width - prev}px"
-                style:height="{panel_height - prev}px"
-                style:background="{colors[panel_color_def[i]]}">
+                style:width="{key_settings.panel_width - prev}px"
+                style:height="{key_settings.panel_height - prev}px"
+                style:background="{key_settings.colors[key_settings.panel_color_def[i]]}">
               </div>
             {/each}
-            <div>{names[i]}</div>
+            <div>{key_settings.names[i]}</div>
           </div>
         {/each}
       </div>
@@ -634,10 +618,10 @@
         {#each notes_measure as notes, i}
           {#each border_num as num}
             <div class="grid"
-              style:width="{note_width + 1}px"
+              style:width="{key_settings.note_width + 1}px"
               style:height="{resolution / note_length * 2 + 1}px"
               style:top="{num * 2}px"
-              style:left="{i * note_width}px"
+              style:left="{i * key_settings.note_width}px"
               on:click={() => move_cursor(measure * resolution + num)}>
             </div>
           {/each}
@@ -646,23 +630,23 @@
         {#if cursor_play >= 0}
           <div class="cursor_play"
             style:top="{cursor_play * 2}px"
-            style:width="{note_width * 18}px">
+            style:width="{key_settings.note_width * key_settings.panel_num}px">
           </div>
         {/if}
         <!-- カーソル表示 -->
         <div class="cursor"
           style:top="{(cursor - measure * resolution) * 2}px"
-          style:width="{note_width * 18}px">
+          style:width="{key_settings.note_width * key_settings.panel_num}px">
         </div>
         <!-- ノート表示 -->
         {#each notes_measure as notes, i}
           {#each notes as note, j}
             <div class="note"
-              style:width="{note_width + 1}px"
-              style:height="{note_height}px"
-              style:top="{note * 2 - note_height / 2}px"
-              style:left="{i * note_width}px"
-              style:background="{colors[panel_color_def[i]]}">
+              style:width="{key_settings.note_width + 1}px"
+              style:height="{key_settings.note_height}px"
+              style:top="{note * 2 - key_settings.note_height / 2}px"
+              style:left="{i * key_settings.note_width}px"
+              style:background="{key_settings.colors[key_settings.panel_color_def[i]]}">
             </div>
           {/each}
         {/each}
