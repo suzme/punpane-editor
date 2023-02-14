@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20230214-0'
+  const version = '20230215-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -47,6 +47,8 @@
 
   // パネルのタイミングデータ(resolution単位)
   let panels_all = new Array(key_settings.panel_num).fill([])
+
+  let panel_reverse
 
   // 曲再生関連
   let play_begin_time   // 開始したときのcurrentTime
@@ -92,7 +94,7 @@
     (panels, i) => panels.includes(cursor) ? key_settings.colors[key_settings.panel_color_def[i]] : key_settings.colors[0]
   )
 
-  // 1小節分のパネル表示用
+  // 1小節分のノート表示用
   // (小節内での相対値の配列の配列)
   $: notes_measure = panels_all.map(
     panels => panels.map(
@@ -104,16 +106,16 @@
     )
   )
 
-  // カーソルより前のパネル表示用
+  // カーソル前後のパネル表示用
   // (カーソル位置からの差の配列の配列)
-  $: panels_previous = panels_all.map(
-    panels => panels.map(
-      // カーソル位置からの差に変換
-      panel => cursor - panel
-    ).filter(
-      // 表示範囲内に絞り込み
-      panel => panel > 0 && panel <= key_settings.panel_width
-    )
+  $: panels_shadow = panels_all.map(
+    panels => panel_reverse ? 
+      // リバース時(カーソルより後ろ)
+      panels.map(panel => panel - cursor)
+        .filter(panel => panel > 0 && panel <= 96) :
+      // 通常時(カーソルより前)
+      panels.map(panel => cursor - panel)
+        .filter(panel => panel > 0 && panel <= 96)
   )
 
   // 罫線の表示位置(n分音符で変更)
@@ -511,6 +513,7 @@
     'KeyR': change_note_len(32),
     'Delete': remove_line,
     'Backspace': backspace,
+    'KeyR': () => panel_reverse = !panel_reverse,
     'Enter': toggle_play
   }
 
@@ -569,7 +572,9 @@
       <label for="begin_frame">開始フレーム: </label>
       <input type="number" value="{begin_frame}" on:change={frame_change} id="begin_frame">
       <label for="bpm">BPM: </label>
-      <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" min="0.01" id="bpm">
+      <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" min="0.01" id="bpm"> |
+      <input type="checkbox" bind:checked="{panel_reverse}" id="panel_reverse">
+      <label for="panel_reverse" title="Rキー: カーソルより前のパネルを表示するか後のパネルを表示するかの切り替え">パネル表示を逆転</label>
     </div>
     <div class="main_buttons">
       <input type="button" value="4"  on:click={change_note_len(4)}  class:selected={note_length === 4 } title="1キー: カーソル移動間隔を4分に変更">
@@ -600,8 +605,8 @@
             style:left="{key_settings.panel_left[i] * key_settings.panel_width}px"
             style:background="{panel_color[i]}"
             on:click={toggle_panel(i)}>
-            <!-- カーソルより前のパネル表示 -->
-            {#each panels_previous[i] as prev}
+            <!-- カーソル前後のパネル表示 -->
+            {#each panels_shadow[i] as prev}
               <div class="panel_back"
                 style:width="{key_settings.panel_width - prev}px"
                 style:height="{key_settings.panel_height - prev}px"
