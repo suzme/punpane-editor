@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20230215-0'
+  const version = '20230815-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
