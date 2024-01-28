@@ -14,6 +14,7 @@
   const default_bpm = 160          // BPMのデフォルト値
 
   const view_measure_nums = [1, 2, 4] // 1ページの小節数の選択肢
+  const panel_ratio_strs = ['1/4', '1/2', '1', '2', '4'] // パネル表示倍率の選択肢
 
   // メッセージの背景色
   const message_colors = {
@@ -53,6 +54,7 @@
 
   let panel_reverse         // パネル表示を反転
   let view_measure_num = 1  // 1ページに表示する小節数
+  let panel_ratio_str = '1'       // パネル表示倍率
 
   // 曲再生関連
   let play_begin_time   // 開始したときのcurrentTime
@@ -99,6 +101,16 @@
   // カーソル位置のフレーム数
   $: cursor_frame = (cursor - label_measure * resolution) / resolution * 4 * 60 * 60 / bpm + begin_frame
 
+  $: panel_ratio = (() => {
+    const a = panel_ratio_str.split('/')
+
+    if (a.length === 1) {
+      return parseFloat(a[0])
+    }
+
+    return parseFloat(a[0]) / parseFloat(a[1])
+  })()
+
   // パネルの表示色(カーソル位置に配置されているかどうかで色を変える)
   $: panel_color = panels_all.map(
     (panels, i) => panels.includes(cursor) ? key_settings.colors[key_settings.panel_color_def[i]] : key_settings.colors[0]
@@ -121,10 +133,10 @@
   $: panels_shadow = panels_all.map(
     panels => panel_reverse ? 
       // リバース時(カーソルより後ろ)
-      panels.map(panel => panel - cursor)
+      panels.map(panel => (panel - cursor) * panel_ratio)
         .filter(panel => panel > 0 && panel <= 96) :
       // 通常時(カーソルより前)
-      panels.map(panel => cursor - panel)
+      panels.map(panel => (cursor - panel) * panel_ratio)
         .filter(panel => panel > 0 && panel <= 96)
   )
 
@@ -594,6 +606,12 @@
       <select bind:value={view_measure_num}>
         {#each view_measure_nums as num}
           <option {num}>{num}</option>
+        {/each}
+      </select>
+      | パネル表示倍率
+      <select bind:value={panel_ratio_str}>
+        {#each panel_ratio_strs as ratio}
+          <option {ratio}>{ratio}</option>
         {/each}
       </select>
     </div>
