@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20240129-0'
+  const version = '20240129-1'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -70,6 +70,9 @@
   let audio_source_node
   let can_play = false    // 再生可能になったらtrue
   let is_playing = false  // 再生中のときtrue
+
+  let undo_list = [] // 元に戻す用のリスト
+  let redo_list = [] // やり直す用のリスト
 
   /**
    * リアクティブ
@@ -151,7 +154,32 @@
   /**
    * メソッド
    */
-  // カーソル移動
+  // 元に戻す
+  const undo = () => {
+    const command = undo_list.pop()
+    if (command) {
+      command.undo()
+      redo_list.push(command)
+    }
+  }
+
+  // やり直す
+  const redo = () => {
+    const command = redo_list.pop()
+    if (command) {
+      command.do()
+      undo_list.push(command)
+    }
+  }
+
+  // 実行
+  const do_command = command => {
+    redo_list = []
+    undo_list.push(command)
+    command.do()
+  }
+
+   // カーソル移動
   const move_cursor = tick => {
     message = ''
     if (is_playing && Math.floor(tick / resolution) !== Math.floor(cursor / resolution)) {
@@ -171,14 +199,32 @@
     cursor = Math.floor(cursor / (resolution / len)) * (resolution / len)
   }
 
-  // パネルの追加
-  const add_panel = (panel_number, tick) => {
+  // パネルの追加(生)
+  const add_panel_ = (panel_number, tick) => {
+    move_cursor(tick)
     panels_all[panel_number] = [...panels_all[panel_number], tick]
   }
 
-  // パネルの削除
-  const delete_panel = (panel_number, tick) => {
+  // パネルの削除(生)
+  const delete_panel_ = (panel_number, tick) => {
+    move_cursor(tick)
     panels_all[panel_number] = panels_all[panel_number].filter(frame => frame !== tick)
+  }
+
+  // パネルの追加(undo/redo対応)
+  const add_panel = (panel_number, tick) => {
+    do_command({
+      undo: () => delete_panel_(panel_number, tick),
+      do: () => add_panel_(panel_number, tick)
+    })
+  }
+
+  // パネルの追加(undo/redo対応)
+  const delete_panel = (panel_number, tick) => {
+    do_command({
+      undo: () => add_panel_(panel_number, tick),
+      do: () => delete_panel_(panel_number, tick)
+    })
   }
 
   // パネル追加/削除
@@ -203,7 +249,14 @@
   // 1行削除
   const remove_line = () => {
     message = ''
-    panels_all = panels_all.map(panels => panels.filter(frame => frame !== cursor))
+    const tick = cursor
+    const target = panels_all
+      .map((panels, panel_number) => panels.includes(tick) ? panel_number : -1)
+      .filter(panel_number => panel_number >= 0)
+    do_command({
+      do: () => target.forEach(panel_number => delete_panel_(panel_number, tick)),
+      undo: () => target.forEach(panel_number => add_panel_(panel_number, tick))
+    })
   }
 
   // カーソルを戻して1行削除
@@ -219,6 +272,8 @@
     }
 
     panels_all = new Array(key_settings.panel_num).fill([])
+    undo_list = []
+    redo_list = []
     label_measures = []
     begin_frames = []
     bpms = []
@@ -280,6 +335,8 @@
 
     cursor = 0
     panels_all = save_data.panels ?? new Array(key_settings.panel_num).fill([])
+    undo_list = []
+    redo_list = []
     label_measures = save_data.label_measures ?? []
     begin_frames = save_data.begin_frames ?? []
     bpms = save_data.bpms ?? []
@@ -541,7 +598,9 @@
     'Delete': remove_line,
     'Backspace': backspace,
     'KeyR': () => panel_reverse = !panel_reverse,
-    'Enter': toggle_play
+    'Enter': toggle_play,
+    'KeyZ': undo,
+    'KeyY': redo,
   }
 
   // キー設定(Ctrl付き)
@@ -587,7 +646,7 @@
 
 <main>
   <div class="container"
-    style:width={`${key_settings.note_width * key_settings.panel_num + 20 + key_settings.panel_width * 5}px`}
+    style:width={`${key_settings.note_width * key_settings.panel_num + 20 + key_settings.panel_width * key_settings.panel_w_num}px`}
     class:dragover={dragover_flag}
     >
     <div>
@@ -628,8 +687,10 @@
       <input type="button" value="↓" on:click={cursor_next} title="下矢印/D/スペース: カーソルを下に移動">
       <input type="button" value="→" on:click={page_next} title="右矢印キー: 次のページに移動">
       <input type="button" value="BS" on:click={backspace} title="Backspace: カーソルを前に移動してパネルを削除">
-      <input type="button" value="DEL" on:click={remove_line} title="Delete: カーソルのある行のパネルを削除">
-      <input type="button" value="Enter" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
+      <input type="button" value="Del" on:click={remove_line} title="Delete: カーソルのある行のパネルを削除">
+      <input type="button" value="↶" on:click={undo} title="Z: 元に戻す">
+      <input type="button" value="↷" on:click={redo} title="Y: やり直す">
+      <input type="button" value="♪" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
     </div>
     <div class="punpane_editor"
       style:height="{resolution * 2 + 10}px">
@@ -747,6 +808,7 @@
     margin: auto;
     font-size: 12pt;
     box-sizing: border-box;
+    min-width: 860px;
   }
 
   .punpane_editor * {
@@ -766,12 +828,13 @@
   .main_buttons > input[type="button"] {
     font-size: 180%;
     min-width: 1.5em;
-    min-height: 1.5em;
+    height: 1.5em;
     color: #666666;
     background: #cccccc;
     border: 1px solid #999999;
     cursor: pointer;
     margin-top: 0.5rem;
+    vertical-align: middle;
   }
 
   input[type="button"][value="4"].selected,

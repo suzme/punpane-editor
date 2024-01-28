@@ -3,6 +3,7 @@ const keys = {
     panel_num: 18,    // パネル数
     panel_width: 96,  // パネルの幅[px]
     panel_height: 96, // パネルの高さ[px]
+    panel_w_num: 5,   // パネルの枚数(横)
     note_width: 20,   // ノートの幅[px]
     note_height: 6,   // ノートの高さ[px]
     panel_top: [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3],                   // パネルの縦位置[*panel_height]
@@ -17,6 +18,7 @@ const keys = {
     panel_num: 9,    // パネル数
     panel_width: 96,  // パネルの幅[px]
     panel_height: 96, // パネルの高さ[px]
+    panel_w_num: 3,   // パネルの枚数(横)
     note_width: 30,   // ノートの幅[px]
     note_height: 6,   // ノートの高さ[px]
     panel_top: [0, 0, 0, 1, 1, 1, 2, 2, 2],                 // パネルの縦位置[*panel_height]
@@ -31,6 +33,7 @@ const keys = {
     panel_num: 36,    // パネル数
     panel_width: 48,  // パネルの幅[px]
     panel_height: 48, // パネルの高さ[px]
+    panel_w_num: 10,   // パネルの枚数(横)
     note_width: 15,   // ノートの幅[px]
     note_height: 6,   // ノートの高さ[px]
     panel_top: [0,0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3,3, 0,0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3,3], // パネルの縦位置[*panel_height]
