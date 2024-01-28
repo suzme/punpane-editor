@@ -26,7 +26,7 @@
   /**
    * 変数
    */
-  let key_settings = {}                    // キー(18p,9t)ごとの設定
+  let key_settings = {}                    // キー(18p,36p,9t)ごとの設定
   const url_obj = new URL(document.location)
   const url_param_key = url_obj.searchParams.get('key')
   if (url_param_key && keys[url_param_key]) {
@@ -544,11 +544,11 @@
     'Enter': toggle_play
   }
 
-  key_settings.key_config.forEach((code, i) => key_config[code] = toggle_panel(i))
-
   // キー設定(Ctrl付き)
-  const key_config_ctrl = {
-  }
+  const key_config_ctrl = Object.assign({}, key_config)
+
+  // キー(18p,36p,9t)ごとの設定を上書き
+  key_settings.key_config.forEach((code, i) => key_config[code] = toggle_panel(i))
 
   // キーを押したとき
   const keydown = e => {
