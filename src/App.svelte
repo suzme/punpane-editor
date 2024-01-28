@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20230815-0'
+  const version = '20240129-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -13,10 +13,13 @@
   const default_begin_frame = 200  // 開始フレームのデフォルト値
   const default_bpm = 160          // BPMのデフォルト値
 
+  const view_measure_nums = [1, 2, 4] // 1ページの小節数の選択肢
+
   // メッセージの背景色
   const message_colors = {
     success: '#99ccff',
-    error: '#ffcccc'
+    error: '#ffcccc',
+    warning: '#ffffcc',
   }
 
   /**
@@ -40,7 +43,7 @@
   let begin_frames = [default_begin_frame] // 開始フレーム(ラベルごと)
   let bpms = [default_bpm]                 // BPM(ラベルごと)
   let add_delay_timer = null;              // パネル追加後、カーソル移動を少し待つためのタイマーのID
-  let message = ''
+  let message = ''                         // セーブ時などの表示メッセージ
   let message_color = message_colors.success
 
   let dragover_flag = false  // ファイルドラッグ中のときtrue
@@ -48,7 +51,8 @@
   // パネルのタイミングデータ(resolution単位)
   let panels_all = new Array(key_settings.panel_num).fill([])
 
-  let panel_reverse
+  let panel_reverse         // パネル表示を反転
+  let view_measure_num = 1  // 1ページに表示する小節数
 
   // 曲再生関連
   let play_begin_time   // 開始したときのcurrentTime
@@ -68,23 +72,29 @@
   /**
    * リアクティブ
    */
-  // 現在の小節番号(0始まり)
+  // 現在の小節/ページ番号(0始まり)
   $: measure = Math.floor(cursor / resolution)
+  $: page = Math.floor(cursor / resolution / view_measure_num)
 
-  // 現在の小節に適用されるラベルの小節番号(仮。存在しない/最初のラベルより前の場合-Infinity)
+  // 現在の小節/ページに適用されるラベルの小節番号(仮。存在しない/最初のラベルより前の場合-Infinity)
   $: label_measure_ = Math.max(...label_measures.filter(label_measure => measure >= label_measure))
+  $: page_label_measure_ = Math.max(...label_measures.filter(label_measure => page * view_measure_num >= label_measure))
 
-  // 現在の小節に適用されるラベルのindex
+  // 現在の小節/ページに適用されるラベルのindex
   $: label_index = label_measures.findIndex(value => value === label_measure_)
+  $: page_label_index = label_measures.findIndex(value => value === page_label_measure_)
 
-  // 現在の小節に適用されるラベルの小節番号(最初のラベルより前の場合、最初のラベルを使用)
+  // 現在の小節/ページに適用されるラベルの小節番号(最初のラベルより前の場合、最初のラベルを使用)
   $: label_measure = label_measures[label_index] ?? label_measures[0] ?? default_fix_measure
+  $: page_label_measure = label_measures[page_label_index] ?? label_measures[0] ?? default_fix_measure
 
-  // 現在の小節に適用されるラベルの開始フレーム
+  // 現在の小節/ページに適用されるラベルの開始フレーム
   $: begin_frame = begin_frames[label_index] ?? begin_frames[0] ?? default_begin_frame
+  $: page_begin_frame = begin_frames[page_label_index] ?? begin_frames[0] ?? default_begin_frame
 
-  // 現在の小節のBPM
+  // 現在の小節/ページのBPM
   $: bpm = bpms[label_index] ?? bpms[0] ?? default_bpm
+  $: page_bpm = bpms[page_label_index] ?? bpms[0] ?? default_bpm
 
   // カーソル位置のフレーム数
   $: cursor_frame = (cursor - label_measure * resolution) / resolution * 4 * 60 * 60 / bpm + begin_frame
@@ -94,15 +104,15 @@
     (panels, i) => panels.includes(cursor) ? key_settings.colors[key_settings.panel_color_def[i]] : key_settings.colors[0]
   )
 
-  // 1小節分のノート表示用
+  // 1ページのノート表示用
   // (小節内での相対値の配列の配列)
-  $: notes_measure = panels_all.map(
+  $: page_notes = panels_all.map(
     panels => panels.map(
-      // 小節線からの相対値に変換
-      panel => panel - measure * resolution
+      // ページ先頭からの相対値に変換
+      panel => panel - page * view_measure_num * resolution
     ).filter(
-      // 小節内に絞り込み
-      panel => panel >= 0 && panel < resolution
+      // ページ内に絞り込み
+      panel => panel >= 0 && panel < resolution * view_measure_num
     )
   )
 
@@ -119,7 +129,12 @@
   )
 
   // 罫線の表示位置(n分音符で変更)
-  $: border_num = new Array(note_length).fill(0).map((n, i) => resolution / note_length * i)
+  $: border_num = new Array(note_length * view_measure_num).fill(0).map((n, i) => resolution / note_length * i)
+
+  // ページ内の途中の小節にラベルがある場合true(警告表示用)
+  $: label_in_page_warning = label_measures.filter(
+    label_measure =>  page * view_measure_num < label_measure && label_measure < (page + 1) * view_measure_num
+  ).length > 0
 
   /**
    * メソッド
@@ -134,8 +149,8 @@
   }
   const cursor_previous = () => move_cursor(cursor - (3 * 64) / note_length)
   const cursor_next = () => move_cursor(cursor + (3 * 64) / note_length)
-  const page_previous = () => move_cursor((measure - 1) * resolution)
-  const page_next = () => move_cursor((measure + 1) * resolution)
+  const page_previous = () => move_cursor((page - 1) * view_measure_num * resolution)
+  const page_next = () => move_cursor((page + 1) * view_measure_num * resolution)
 
   // 間隔変更
   const change_note_len = len => () => {
@@ -310,7 +325,7 @@
   const play_animation_loop = () => {
     if (!is_playing) return
     cursor_play = ((audio_context.currentTime - play_begin_time) * bpm * playback_rate / 60 / 4 - 0.5) * resolution
-    if (cursor_play > resolution) {
+    if (cursor_play > resolution * view_measure_num) {
       stop()
       play()
     }
@@ -323,7 +338,7 @@
       stop()
     }
     if (can_play) {
-      const fade_begin_frame = (measure - label_measure - 0.5) * 4 * 60 * 60 / bpm + begin_frame
+      const fade_begin_frame = (page * view_measure_num - page_label_measure - 0.5) * 4 * 60 * 60 / page_bpm + page_begin_frame
       const fade_begin_time = (fade_begin_frame - 200) / 60
       const offset_time = fade_begin_time < 0 ? -fade_begin_time : 0
       audio_gain_node.gain.value = volume
@@ -574,7 +589,13 @@
       <label for="bpm">BPM: </label>
       <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" min="0.01" id="bpm"> |
       <input type="checkbox" bind:checked="{panel_reverse}" id="panel_reverse">
-      <label for="panel_reverse" title="Rキー: カーソルより前のパネルを表示するか後のパネルを表示するかの切り替え">パネル表示を逆転</label>
+      <label for="panel_reverse" title="Rキー: カーソルより前のパネルを表示するか後のパネルを表示するかの切り替え">パネル表示を逆転</label><br>
+      1ページの小節数
+      <select bind:value={view_measure_num}>
+        {#each view_measure_nums as num}
+          <option {num}>{num}</option>
+        {/each}
+      </select>
     </div>
     <div class="main_buttons">
       <input type="button" value="4"  on:click={change_note_len(4)}  class:selected={note_length === 4 } title="1キー: カーソル移動間隔を4分に変更">
@@ -584,10 +605,10 @@
       <input type="button" value="12" on:click={change_note_len(12)} class:selected={note_length === 12} title="4キー: カーソル移動間隔を12分(8分3連)に変更">
       <input type="button" value="24" on:click={change_note_len(24)} class:selected={note_length === 24} title="5キー: カーソル移動間隔を24分(16分3連)に変更">
       <input type="button" value="48" on:click={change_note_len(48)} class:selected={note_length === 48} title="6キー: カーソル移動間隔を48分(32分3連)に変更">
-      <input type="button" value="←" on:click={page_previous} title="左矢印キー: 前の小節に移動">
+      <input type="button" value="←" on:click={page_previous} title="左矢印キー: 前のページに移動">
       <input type="button" value="↑" on:click={cursor_previous} title="上矢印/E/B: カーソルを上に移動">
       <input type="button" value="↓" on:click={cursor_next} title="下矢印/D/スペース: カーソルを下に移動">
-      <input type="button" value="→" on:click={page_next} title="右矢印キー: 次の小節に移動">
+      <input type="button" value="→" on:click={page_next} title="右矢印キー: 次のページに移動">
       <input type="button" value="BS" on:click={backspace} title="Backspace: カーソルを前に移動してパネルを削除">
       <input type="button" value="DEL" on:click={remove_line} title="Delete: カーソルのある行のパネルを削除">
       <input type="button" value="Enter" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
@@ -598,6 +619,7 @@
       <div class="panels" style={`left: ${key_settings.note_width * key_settings.panel_num + 20}px; width: ${key_settings.panel_width * 5}px;`}>
         {#each panels_all as panels, i}
           <!-- パネル本体 -->
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
           <div class="panel"
             style:width="{key_settings.panel_width + 1}px"
             style:height="{key_settings.panel_height + 1}px"
@@ -620,36 +642,37 @@
       <!-- 左側: ノート表示部 -->
       <div class="notes">
         <!-- グリッド表示 -->
-        {#each notes_measure as notes, i}
-          {#each border_num as num}
-            <div class="grid"
+        {#each page_notes as notes, i}
+          {#each border_num as num, j}
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <div class="{j % (note_length / 4) == 0 ? 'grid4' : 'grid'}"
               style:width="{key_settings.note_width + 1}px"
-              style:height="{resolution / note_length * 2 + 1}px"
-              style:top="{num * 2}px"
+              style:height="{resolution / note_length * 2 / view_measure_num + 1}px"
+              style:top="{num * 2 / view_measure_num}px"
               style:left="{i * key_settings.note_width}px"
-              on:click={() => move_cursor(measure * resolution + num)}>
+              on:click={() => move_cursor(page * resolution * view_measure_num + num)}>
             </div>
           {/each}
         {/each}
         <!-- 再生位置カーソル表示 -->
         {#if cursor_play >= 0}
           <div class="cursor_play"
-            style:top="{cursor_play * 2}px"
+            style:top="{cursor_play * 2 / view_measure_num}px"
             style:width="{key_settings.note_width * key_settings.panel_num}px">
           </div>
         {/if}
         <!-- カーソル表示 -->
         <div class="cursor"
-          style:top="{(cursor - measure * resolution) * 2}px"
+          style:top="{(cursor - page * resolution * view_measure_num) * 2 / view_measure_num}px"
           style:width="{key_settings.note_width * key_settings.panel_num}px">
         </div>
         <!-- ノート表示 -->
-        {#each notes_measure as notes, i}
+        {#each page_notes as notes, i}
           {#each notes as note, j}
             <div class="note"
               style:width="{key_settings.note_width + 1}px"
               style:height="{key_settings.note_height}px"
-              style:top="{note * 2 - key_settings.note_height / 2}px"
+              style:top="{note * 2 / view_measure_num - key_settings.note_height / 2}px"
               style:left="{i * key_settings.note_width}px"
               style:background="{key_settings.colors[key_settings.panel_color_def[i]]}">
             </div>
@@ -679,11 +702,19 @@
     </div>
     <div class="message_container">
       {#if message !== ''}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
         <div class="message"
           style:background="{message_color}"
           in:fade="{{duration: 100}}"
           out:fade="{{duration: 300}}"
           on:click="{() => message = ''}">{message}</div>
+      {:else if label_in_page_warning}
+        <div class="message"
+          style:background="{message_colors.warning}"
+          in:fade="{{duration: 100}}"
+          out:fade="{{duration: 300}}">
+          ページの途中にラベルがあるため曲再生が正常にできない可能性があります。
+        </div>
       {/if}
     </div>
     <footer>
@@ -738,6 +769,11 @@
     background: #ff99ee;
   }
 
+  select {
+    min-width: 3em;
+    font-size: 100%;
+  }
+
   .panels {
     position: relative;
   }
@@ -770,9 +806,15 @@
     border: 1px solid #999999;
   }
 
+  .grid4 {
+    position: absolute;
+    border: 1px solid #cccccc;
+    border-top: 1px solid #999999;
+  }
+
   .grid {
     position: absolute;
-    border: 1px solid #cccccc
+    border: 1px solid #cccccc;
   }
 
   .cursor {
@@ -820,6 +862,7 @@
   }
 
   .message {
+    position: absolute;
     padding: 0.5rem;
     cursor: pointer;
   }
