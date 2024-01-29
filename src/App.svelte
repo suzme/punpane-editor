@@ -292,8 +292,21 @@
     }
   }
 
+  // ページのコピー
+  const copy_page = () => {
+    copy_text(JSON.stringify({
+      title: 'punpane-editor-copy',
+      editor_version: version,
+      copy_data_version: 1,
+      resolution: resolution,
+      key: key_settings.key,
+      panels: page_notes
+    }), 'クリップボードに現在のページをコピーしました。')
+  }
+
   // セーブデータ作成
   const get_save_date = () => JSON.stringify({
+      title: 'punpane-editor-save',
       key: key_settings.key,
       panels: panels_all,
       label_measures: label_measures,
@@ -302,7 +315,7 @@
       resolution: resolution,
       chart_num: chart_num,
       editor_version: version,
-      save_data_version: 1
+      save_data_version: 2
     })
 
   // クリップボードにセーブデータを保存
@@ -312,16 +325,36 @@
   const load = text => {
     let save_data
   
-    if (confirm('セーブデータを読み込むと現在編集中のデータは失われます。よろしいですか？') === false) {
-      return
-    }
-  
     try {
       save_data = JSON.parse(text)
     } catch (e) {
       console.log(e)
       message = 'セーブデータの読み込みに失敗しました。'
       message_color = message_colors.error
+      return
+    }
+
+    if (save_data.title === 'punpane-editor-copy') {
+      const paste_panels = save_data.panels
+      const paste_measure_num = page * view_measure_num
+      do_command({
+        do: () => paste_panels.forEach((panels, panel_number) => panels.forEach(panel => {
+          add_panel_(panel_number, panel + paste_measure_num * resolution)
+        })),
+        undo: () => paste_panels.forEach((panels, panel_number) => panels.forEach(panel => {
+          delete_panel_(panel_number, panel + paste_measure_num * resolution)
+        }))
+      })
+      return
+    }
+
+    if (save_data.save_data_version !== 1 && save_data.title !== 'punpane-editor-save') {
+      message = 'セーブデータの形式が不正です'
+      message_color = message_colors.error
+      return
+    }
+
+    if (confirm('セーブデータを読み込むと現在編集中のデータは失われます。よろしいですか？') === false) {
       return
     }
 
@@ -601,6 +634,8 @@
     'Enter': toggle_play,
     'KeyZ': undo,
     'KeyY': redo,
+    'KeyC': copy_page,
+    'KeyV': load_clipboard,
   }
 
   // キー設定(Ctrl付き)
@@ -774,7 +809,8 @@
     </div>
     <div class="save_buttons">
       <input type="button" value="新規作成" on:click={clear_data}>
-      <input type="button" value="クリップボードから読み込み" on:click={load_clipboard}>
+      <input type="button" value="ページのコピー(C)" on:click={copy_page}>
+      <input type="button" value="貼り付け/読み込み(V)" on:click={load_clipboard}>
       <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
       譜面番号<input type="number" min="1" bind:value={chart_num}>
