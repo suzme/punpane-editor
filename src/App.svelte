@@ -304,6 +304,20 @@
     }), 'クリップボードに現在のページをコピーしました。')
   }
 
+  // ページカット
+  const cut_page = () => {
+    copy_page()
+    const target = panels_all.map(
+      panels => panels.filter(
+        panel => page * view_measure_num * resolution <= panel &&
+                 panel < (page + 1) * view_measure_num * resolution))
+    do_command({
+      do: () => target.forEach((panels, panel_number) => panels.forEach(panel => delete_panel_(panel_number, panel))),
+      undo: () => target.forEach((panels, panel_number) => panels.forEach(panel => add_panel_(panel_number, panel)))
+    })
+    message = 'クリップボードに現在のページをコピーしました。'
+  }
+
   // セーブデータ作成
   const get_save_date = () => JSON.stringify({
       title: 'punpane-editor-save',
@@ -636,6 +650,7 @@
     'KeyY': redo,
     'KeyC': copy_page,
     'KeyV': load_clipboard,
+    'KeyX': cut_page,
   }
 
   // キー設定(Ctrl付き)
@@ -809,8 +824,9 @@
     </div>
     <div class="save_buttons">
       <input type="button" value="新規作成" on:click={clear_data}>
-      <input type="button" value="ページのコピー(C)" on:click={copy_page}>
-      <input type="button" value="貼り付け/読み込み(V)" on:click={load_clipboard}>
+      <input type="button" value="コピー(C)" on:click={copy_page}>
+      <input type="button" value="カット(X)" on:click={cut_page}>
+      <input type="button" value="貼付/読込(V)" on:click={load_clipboard}>
       <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
       <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
       譜面番号<input type="number" min="1" bind:value={chart_num}>
