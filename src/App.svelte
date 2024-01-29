@@ -649,8 +649,10 @@
     'KeyZ': undo,
     'KeyY': redo,
     'KeyC': copy_page,
-    'KeyV': load_clipboard,
     'KeyX': cut_page,
+    'KeyV': load_clipboard,
+    'KeyS': save_clipboard,
+    'KeyD': save_dos_clipboard,
   }
 
   // キー設定(Ctrl付き)
@@ -710,7 +712,7 @@
       <label for="bpm">BPM: </label>
       <input type="number" value="{bpm}" on:change={bpm_change} step="0.01" min="0.01" id="bpm"> |
       <input type="checkbox" bind:checked="{panel_reverse}" id="panel_reverse">
-      <label for="panel_reverse" title="Rキー: カーソルより前のパネルを表示するか後のパネルを表示するかの切り替え">パネル表示を逆転</label><br>
+      <label for="panel_reverse" title="Rキー: カーソルより前のパネルを表示するか後のパネルを表示するかの切り替え">パネル表示を逆転(R)</label><br>
       1ページの小節数
       <select bind:value={view_measure_num}>
         {#each view_measure_nums as num}
@@ -823,12 +825,12 @@
       画面にファイルをドロップしてセーブデータ/音楽ファイルを読み込み
     </div>
     <div class="save_buttons">
-      <input type="button" value="新規作成" on:click={clear_data}>
-      <input type="button" value="コピー(C)" on:click={copy_page}>
-      <input type="button" value="カット(X)" on:click={cut_page}>
-      <input type="button" value="貼付/読込(V)" on:click={load_clipboard}>
-      <input type="button" value="セーブデータの保存" on:click={save_clipboard}>
-      <input type="button" value="dosの保存" on:click={save_dos_clipboard}>
+      <input type="button" value="新規作成" on:click={clear_data} title="編集中の譜面データを初期化します">
+      <input type="button" value="コピー(C)" on:click={copy_page} title="C: 現在のページ内容をクリップボードにコピーします。">
+      <input type="button" value="カット(X)" on:click={cut_page} title="X: 現在のページ内容をクリップボードに切り取ります。">
+      <input type="button" value="貼付/読込(V)" on:click={load_clipboard} title="V: コピーした内容を貼り付けます。クリップボードにセーブデータがある場合、それを読み込みます。">
+      <input type="button" value="セーブ(S)" on:click={save_clipboard} title="S: セーブデータをクリップボードにコピーします。">
+      <input type="button" value="dos出力(D)" on:click={save_dos_clipboard} title="D: dosデータをクリップボードにコピーします。">
       譜面番号<input type="number" min="1" bind:value={chart_num}>
     </div>
     <div class="message_container">
