@@ -703,10 +703,6 @@
     'ArrowDown': cursor_next,
     'ArrowLeft': page_previous,
     'ArrowRight': page_next,
-    'KeyE': cursor_previous,
-    'KeyD': cursor_next,
-    'KeyS': page_previous,
-    'KeyF': page_next,
     'KeyB': cursor_previous,
     'Space': cursor_next,
     'Digit1': change_note_len(4),
@@ -715,11 +711,16 @@
     'Digit4': change_note_len(12),
     'Digit5': change_note_len(24),
     'Digit6': change_note_len(48),
-    'KeyR': change_note_len(32),
+    'Digit7': change_note_len(32),
+    'KeyE': change_note_len(32),
     'Delete': delete_line,
     'Backspace': backspace,
     'KeyR': () => panel_reverse = !panel_reverse,
     'Enter': toggle_play,
+  }
+
+  // キー設定(Ctrl付き)
+  const key_config_ctrl = Object.assign({
     'KeyZ': undo,
     'KeyY': redo,
     'KeyC': copy_page,
@@ -727,10 +728,7 @@
     'KeyV': load_clipboard,
     'KeyS': save_clipboard,
     'KeyD': save_dos_clipboard,
-  }
-
-  // キー設定(Ctrl付き)
-  const key_config_ctrl = Object.assign({}, key_config)
+  }, key_config)
 
   // キー(18p,36p,9t)ごとの設定を上書き
   key_settings.key_config.forEach((code, i) => key_config[code] = toggle_panel(i))
@@ -804,18 +802,18 @@
       <input type="button" value="4"  on:click={change_note_len(4)}  class:selected={note_length === 4 } title="1キー: カーソル移動間隔を4分に変更">
       <input type="button" value="8"  on:click={change_note_len(8)}  class:selected={note_length === 8 } title="2キー: カーソル移動間隔を8分に変更">
       <input type="button" value="16" on:click={change_note_len(16)} class:selected={note_length === 16} title="3キー: カーソル移動間隔を16分に変更">
-      <input type="button" value="32" on:click={change_note_len(32)} class:selected={note_length === 32} title="Rキー: カーソル移動間隔を32分に変更">
+      <input type="button" value="32" on:click={change_note_len(32)} class:selected={note_length === 32} title="7/Eキー: カーソル移動間隔を32分に変更">
       <input type="button" value="12" on:click={change_note_len(12)} class:selected={note_length === 12} title="4キー: カーソル移動間隔を12分(8分3連)に変更">
       <input type="button" value="24" on:click={change_note_len(24)} class:selected={note_length === 24} title="5キー: カーソル移動間隔を24分(16分3連)に変更">
       <input type="button" value="48" on:click={change_note_len(48)} class:selected={note_length === 48} title="6キー: カーソル移動間隔を48分(32分3連)に変更">
       <input type="button" value="←" on:click={page_previous} title="左矢印キー: 前のページに移動">
-      <input type="button" value="↑" on:click={cursor_previous} title="上矢印/E/B: カーソルを上に移動">
-      <input type="button" value="↓" on:click={cursor_next} title="下矢印/D/スペース: カーソルを下に移動">
+      <input type="button" value="↑" on:click={cursor_previous} title="上矢印/B: カーソルを上に移動">
+      <input type="button" value="↓" on:click={cursor_next} title="下矢印/スペース: カーソルを下に移動">
       <input type="button" value="→" on:click={page_next} title="右矢印キー: 次のページに移動">
       <input type="button" value="BS" on:click={backspace} title="Backspace: カーソルを前に移動してパネルを削除">
       <input type="button" value="Del" on:click={delete_line} title="Delete: カーソルのある行のパネルを削除">
-      <input type="button" value="↶" on:click={undo} title="Z: 元に戻す">
-      <input type="button" value="↷" on:click={redo} title="Y: やり直す">
+      <input type="button" value="↶" on:click={undo} title="Ctrl+Z: 元に戻す">
+      <input type="button" value="↷" on:click={redo} title="Ctrl+Y: やり直す">
       <input type="button" value="♪" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
     </div>
     <div class="punpane_editor"
@@ -900,11 +898,11 @@
     </div>
     <div class="save_buttons">
       <input type="button" value="新規作成" on:click={clear_data} title="編集中の譜面データを初期化します">
-      <input type="button" value="コピー(C)" on:click={copy_page} title="C: 現在のページ内容をクリップボードにコピーします。">
-      <input type="button" value="切り取り(X)" on:click={cut_page} title="X: 現在のページ内容をクリップボードに切り取ります。">
-      <input type="button" value="貼り付け/読み込み(V)" on:click={load_clipboard} title="V: コピーした内容を貼り付けます。クリップボードにセーブデータがある場合、それを読み込みます。">
-      <input type="button" value="セーブ(S)" on:click={save_clipboard} title="S: セーブデータをクリップボードにコピーします。">
-      <input type="button" value="dos出力(D)" on:click={save_dos_clipboard} title="D: dosデータをクリップボードにコピーします。">
+      <input type="button" value="コピー(C)" on:click={copy_page} title="Ctrl+C: 現在のページ内容をクリップボードにコピーします。">
+      <input type="button" value="切り取り(X)" on:click={cut_page} title="Ctrl+X: 現在のページ内容をクリップボードに切り取ります。">
+      <input type="button" value="貼り付け/読み込み(V)" on:click={load_clipboard} title="Ctrl+V: コピーした内容を貼り付けます。クリップボードにセーブデータがある場合、それを読み込みます。">
+      <input type="button" value="セーブ(S)" on:click={save_clipboard} title="Ctrl+S: セーブデータをクリップボードにコピーします。">
+      <input type="button" value="dos出力(D)" on:click={save_dos_clipboard} title="Ctrl+D: dosデータをクリップボードにコピーします。">
       譜面番号<input type="number" min="1" bind:value={chart_num}>
     </div>
     <div class="message_container">
