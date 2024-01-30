@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20240130-0'
+  const version = '20240131-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -173,7 +173,9 @@
   const redo = () => {
     const command = redo_list.pop()
     if (command) {
-      if (command.do) {
+      if (command.redo) {
+        command.redo()
+      } else if (command.do) {
         command.do()
       } else {
         message = '不正なコマンドです。'
@@ -219,29 +221,45 @@
 
   // パネルの追加(生)
   const add_panel_ = (panel_number, tick) => {
-    move_cursor(tick)
     panels_all[panel_number] = [...panels_all[panel_number], tick]
   }
 
   // パネルの削除(生)
   const delete_panel_ = (panel_number, tick) => {
-    move_cursor(tick)
     panels_all[panel_number] = panels_all[panel_number].filter(frame => frame !== tick)
   }
 
   // パネルの追加(undo/redo対応)
   const add_panel = (panel_number, tick) => {
     do_command({
-      undo: () => delete_panel_(panel_number, tick),
-      do: () => add_panel_(panel_number, tick)
+      do: () => {
+        add_panel_(panel_number, tick)
+      },
+      redo: () => {
+        add_panel_(panel_number, tick)
+        move_cursor(tick)
+      },
+      undo: () => {
+        delete_panel_(panel_number, tick)
+        move_cursor(tick)
+      }
     })
   }
 
   // パネルの削除(undo/redo対応)
   const delete_panel = (panel_number, tick) => {
     do_command({
-      undo: () => add_panel_(panel_number, tick),
-      do: () => delete_panel_(panel_number, tick)
+      do: () => {
+        delete_panel_(panel_number, tick)
+      },
+      redo: () => {
+        delete_panel_(panel_number, tick)
+        move_cursor(tick)
+      },
+      undo: () => {
+        add_panel_(panel_number, tick)
+        move_cursor(tick)
+      }
     })
   }
 
@@ -264,16 +282,32 @@
     }
   }
 
+  // 指定した全パネルに関数を適用
+  const apply_all = (target, func) => {
+    target.forEach((panels, panel_number) => {
+      panels.forEach(panel_tick => {
+        func(panel_number, panel_tick)
+      })
+    })
+  }
+
   // 1行削除
   const delete_line = () => {
     message = ''
     const tick = cursor
-    const target = panels_all
-      .map((panels, panel_number) => panels.includes(tick) ? panel_number : -1)
-      .filter(panel_number => panel_number >= 0)
+    const target = panels_all.map(panels => panels.filter(panel_tick => panel_tick === tick))
     do_command({
-      do: () => target.forEach(panel_number => delete_panel_(panel_number, tick)),
-      undo: () => target.forEach(panel_number => add_panel_(panel_number, tick))
+      do: () => {
+        apply_all(target, delete_panel_)
+      },
+      redo: () => {
+        apply_all(target, delete_panel_)
+        move_cursor(tick)
+      },
+      undo: () => {
+        apply_all(target, add_panel_)
+        move_cursor(tick)
+      }
     })
   }
 
@@ -325,13 +359,26 @@
   // ページ切り取り
   const cut_page = () => {
     copy_page()
+    const cut_cursor = page * view_measure_num * resolution
+
+    // ページ内のパネル全部
     const target = panels_all.map(
       panels => panels.filter(
-        panel => page * view_measure_num * resolution <= panel &&
-                 panel < (page + 1) * view_measure_num * resolution))
+        panel_tick => page * view_measure_num * resolution <= panel_tick &&
+                 panel_tick < (page + 1) * view_measure_num * resolution))
+
     do_command({
-      do: () => target.forEach((panels, panel_number) => panels.forEach(panel => delete_panel_(panel_number, panel))),
-      undo: () => target.forEach((panels, panel_number) => panels.forEach(panel => add_panel_(panel_number, panel)))
+      do: () => {
+        apply_all(target, delete_panel_)
+      },
+      redo: () => {
+        apply_all(target, delete_panel_)
+        move_cursor(cut_cursor)
+      },
+      undo: () => {
+        apply_all(target, add_panel_)
+        move_cursor(cut_cursor)
+      }
     })
     message = 'クリップボードに現在のページをコピーしました。'
   }
@@ -369,14 +416,20 @@
     // ページ貼り付け
     if (paste_data.title === 'punpane-editor-copy') {
       const paste_panels = paste_data.panels
-      const paste_measure_num = page * view_measure_num
+      const page_top = page * view_measure_num * resolution
+
       do_command({
-        do: () => paste_panels.forEach((panels, panel_number) => panels.forEach(panel => {
-          add_panel_(panel_number, panel + paste_measure_num * resolution)
-        })),
-        undo: () => paste_panels.forEach((panels, panel_number) => panels.forEach(panel => {
-          delete_panel_(panel_number, panel + paste_measure_num * resolution)
-        }))
+        do: () => {
+          apply_all(paste_panels, (panel_number, panel_tick) => add_panel_(panel_number, panel_tick + page_top))
+        },
+        redo: () => {
+          apply_all(paste_panels, (panel_number, panel_tick) => add_panel_(panel_number, panel_tick + page_top))
+          move_cursor(page_top)
+        },
+        undo: () => {
+          apply_all(paste_panels, (panel_number, panel_tick) => delete_panel_(panel_number, panel_tick + page_top))
+          move_cursor(page_top)
+        }
       })
       return
     }
