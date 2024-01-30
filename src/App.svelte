@@ -158,7 +158,13 @@
   const undo = () => {
     const command = undo_list.pop()
     if (command) {
-      command.undo()
+      if (command.undo) {
+        command.undo()
+      } else {
+        message = '不正なコマンドです。'
+        message_color = message_colors.error
+        console.log(command)
+      }
       redo_list.push(command)
     }
   }
@@ -167,16 +173,28 @@
   const redo = () => {
     const command = redo_list.pop()
     if (command) {
-      command.do()
+      if (command.do) {
+        command.do()
+      } else {
+        message = '不正なコマンドです。'
+        message_color = message_colors.error
+        console.log(command)
+      }
       undo_list.push(command)
     }
   }
 
   // 実行
   const do_command = command => {
-    redo_list = []
-    undo_list.push(command)
-    command.do()
+    if (command.do) {
+      redo_list = []
+      undo_list.push(command)
+      command.do()
+    } else {
+      message = '不正なコマンドです。'
+      message_color = message_colors.error
+      console.log(command)
+    }
   }
 
    // カーソル移動
@@ -219,7 +237,7 @@
     })
   }
 
-  // パネルの追加(undo/redo対応)
+  // パネルの削除(undo/redo対応)
   const delete_panel = (panel_number, tick) => {
     do_command({
       undo: () => add_panel_(panel_number, tick),
@@ -247,7 +265,7 @@
   }
 
   // 1行削除
-  const remove_line = () => {
+  const delete_line = () => {
     message = ''
     const tick = cursor
     const target = panels_all
@@ -262,7 +280,7 @@
   // カーソルを戻して1行削除
   const backspace = () => {
     cursor_previous()
-    remove_line()
+    delete_line()
   }
 
   // 新規作成
@@ -304,7 +322,7 @@
     }), 'クリップボードに現在のページをコピーしました。')
   }
 
-  // ページカット
+  // ページ切り取り
   const cut_page = () => {
     copy_page()
     const target = panels_all.map(
@@ -337,10 +355,10 @@
 
   // セーブデータ読み込み
   const load = text => {
-    let save_data
+    let paste_data
   
     try {
-      save_data = JSON.parse(text)
+      paste_data = JSON.parse(text)
     } catch (e) {
       console.log(e)
       message = 'セーブデータの読み込みに失敗しました。'
@@ -348,8 +366,9 @@
       return
     }
 
-    if (save_data.title === 'punpane-editor-copy') {
-      const paste_panels = save_data.panels
+    // ページ貼り付け
+    if (paste_data.title === 'punpane-editor-copy') {
+      const paste_panels = paste_data.panels
       const paste_measure_num = page * view_measure_num
       do_command({
         do: () => paste_panels.forEach((panels, panel_number) => panels.forEach(panel => {
@@ -362,32 +381,34 @@
       return
     }
 
-    if (save_data.save_data_version !== 1 && save_data.title !== 'punpane-editor-save') {
+    // ページ貼り付けでもセーブデータでもない場合
+    if (paste_data.save_data_version !== 1 && paste_data.title !== 'punpane-editor-save') {
       message = 'セーブデータの形式が不正です'
       message_color = message_colors.error
       return
     }
 
+    // セーブデータ読み込み
     if (confirm('セーブデータを読み込むと現在編集中のデータは失われます。よろしいですか？') === false) {
       return
     }
 
-    if (save_data.key) {
-      key_settings = {...keys[save_data.key]}
-      key_settings.key = save_data.key
+    if (paste_data.key) {
+      key_settings = {...keys[paste_data.key]}
+      key_settings.key = paste_data.key
     } else {
       key_settings = {...keys['18p']}
       key_settings.key = '18p'
     }
 
     cursor = 0
-    panels_all = save_data.panels ?? new Array(key_settings.panel_num).fill([])
+    panels_all = paste_data.panels ?? new Array(key_settings.panel_num).fill([])
     undo_list = []
     redo_list = []
-    label_measures = save_data.label_measures ?? []
-    begin_frames = save_data.begin_frames ?? []
-    bpms = save_data.bpms ?? []
-    chart_num = save_data.chart_num
+    label_measures = paste_data.label_measures ?? []
+    begin_frames = paste_data.begin_frames ?? []
+    bpms = paste_data.bpms ?? []
+    chart_num = paste_data.chart_num
     message = 'セーブデータを読み込みました。'
   }
 
@@ -642,7 +663,7 @@
     'Digit5': change_note_len(24),
     'Digit6': change_note_len(48),
     'KeyR': change_note_len(32),
-    'Delete': remove_line,
+    'Delete': delete_line,
     'Backspace': backspace,
     'KeyR': () => panel_reverse = !panel_reverse,
     'Enter': toggle_play,
@@ -716,13 +737,13 @@
       1ページの小節数
       <select bind:value={view_measure_num}>
         {#each view_measure_nums as num}
-          <option {num}>{num}</option>
+          <option>{num}</option>
         {/each}
       </select>
       | パネル表示倍率
       <select bind:value={panel_ratio_str}>
         {#each panel_ratio_strs as ratio}
-          <option {ratio}>{ratio}</option>
+          <option>{ratio}</option>
         {/each}
       </select>
     </div>
@@ -739,7 +760,7 @@
       <input type="button" value="↓" on:click={cursor_next} title="下矢印/D/スペース: カーソルを下に移動">
       <input type="button" value="→" on:click={page_next} title="右矢印キー: 次のページに移動">
       <input type="button" value="BS" on:click={backspace} title="Backspace: カーソルを前に移動してパネルを削除">
-      <input type="button" value="Del" on:click={remove_line} title="Delete: カーソルのある行のパネルを削除">
+      <input type="button" value="Del" on:click={delete_line} title="Delete: カーソルのある行のパネルを削除">
       <input type="button" value="↶" on:click={undo} title="Z: 元に戻す">
       <input type="button" value="↷" on:click={redo} title="Y: やり直す">
       <input type="button" value="♪" on:click={toggle_play} title="Enter: 曲再生の開始/停止">
@@ -827,8 +848,8 @@
     <div class="save_buttons">
       <input type="button" value="新規作成" on:click={clear_data} title="編集中の譜面データを初期化します">
       <input type="button" value="コピー(C)" on:click={copy_page} title="C: 現在のページ内容をクリップボードにコピーします。">
-      <input type="button" value="カット(X)" on:click={cut_page} title="X: 現在のページ内容をクリップボードに切り取ります。">
-      <input type="button" value="貼付/読込(V)" on:click={load_clipboard} title="V: コピーした内容を貼り付けます。クリップボードにセーブデータがある場合、それを読み込みます。">
+      <input type="button" value="切り取り(X)" on:click={cut_page} title="X: 現在のページ内容をクリップボードに切り取ります。">
+      <input type="button" value="貼り付け/読み込み(V)" on:click={load_clipboard} title="V: コピーした内容を貼り付けます。クリップボードにセーブデータがある場合、それを読み込みます。">
       <input type="button" value="セーブ(S)" on:click={save_clipboard} title="S: セーブデータをクリップボードにコピーします。">
       <input type="button" value="dos出力(D)" on:click={save_dos_clipboard} title="D: dosデータをクリップボードにコピーします。">
       譜面番号<input type="number" min="1" bind:value={chart_num}>
