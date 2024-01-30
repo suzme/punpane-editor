@@ -200,8 +200,10 @@
    // カーソル移動
   const move_cursor = tick => {
     message = ''
-    if (is_playing && Math.floor(tick / resolution) !== Math.floor(cursor / resolution)) {
-      setTimeout(play, 0) // カーソル移動完了してから再生
+    // 曲再生中にカーソル移動がページをまたぐ時
+    if (is_playing && Math.floor(tick / (resolution * view_measure_num)) !== Math.floor(cursor / (resolution * view_measure_num))) {
+      // 移動完了後に移動先のページで再生
+      setTimeout(play, 0)
     }
     cursor = tick
   }
