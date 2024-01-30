@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20240131-0'
+  const version = '20240131-1'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -27,14 +27,12 @@
    * 変数
    */
   let key_settings = {}                    // キー(18p,36p,9t)ごとの設定
-  const url_obj = new URL(document.location)
+  const url_obj = new URL(document.location.toString())
   const url_param_key = url_obj.searchParams.get('key')
   if (url_param_key && keys[url_param_key]) {
-    key_settings = {...keys[url_param_key]}
-    key_settings.key = url_param_key
+    key_settings = {...keys[url_param_key], key: url_param_key}
   } else {
-    key_settings = {...keys['18p']}
-    key_settings.key = '18p'
+    key_settings = {...keys['18p'], key: '18p'}
   }
 
   let chart_num = 1                        // 譜面番号
@@ -673,6 +671,9 @@
       can_play = false
       const reader = new FileReader()
       reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          return
+        }
         audio_context.decodeAudioData(reader.result, decode_result => {
           audio_buffer_node = decode_result
           message = '音楽ファイルの読み込みが完了しました。'
@@ -823,6 +824,7 @@
         {#each panels_all as panels, i}
           <!-- パネル本体 -->
           <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
           <div class="panel"
             style:width="{key_settings.panel_width + 1}px"
             style:height="{key_settings.panel_height + 1}px"
@@ -848,6 +850,7 @@
         {#each page_notes as notes, i}
           {#each border_num as num, j}
             <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
             <div class="{j % (note_length / 4) == 0 ? 'grid4' : 'grid'}"
               style:width="{key_settings.note_width + 1}px"
               style:height="{resolution / note_length * 2 / view_measure_num + 1}px"
@@ -908,6 +911,7 @@
     <div class="message_container">
       {#if message !== ''}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="message"
           style:background="{message_color}"
           in:fade="{{duration: 100}}"
