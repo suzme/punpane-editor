@@ -5,7 +5,7 @@
   /**
    * 定数
    */
-  const version = '20240131-1'
+  const version = '20250908-0'
   const resolution = 3 * 64   // 分解能(1小節を何分割するか)
   const add_panel_delay = 100 // パネル追加時の遅延時間(同時押しと判定する時間[ms])
 
@@ -418,16 +418,25 @@
       const paste_panels = paste_data.panels
       const page_top = page * view_measure_num * resolution
 
+      // ページ内のパネル全部
+      const target = panels_all.map(
+        panels => panels.filter(
+          panel_tick => page * view_measure_num * resolution <= panel_tick &&
+                  panel_tick < (page + 1) * view_measure_num * resolution))
+
       do_command({
         do: () => {
+          apply_all(target, delete_panel_)
           apply_all(paste_panels, (panel_number, panel_tick) => add_panel_(panel_number, panel_tick + page_top))
         },
         redo: () => {
+          apply_all(target, delete_panel_)
           apply_all(paste_panels, (panel_number, panel_tick) => add_panel_(panel_number, panel_tick + page_top))
           move_cursor(page_top)
         },
         undo: () => {
           apply_all(paste_panels, (panel_number, panel_tick) => delete_panel_(panel_number, panel_tick + page_top))
+          apply_all(target, add_panel_)
           move_cursor(page_top)
         }
       })
